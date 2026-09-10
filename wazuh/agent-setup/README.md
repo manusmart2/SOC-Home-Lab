@@ -1,196 +1,335 @@
-# Wazuh Agent Setup
+# Wazuh Agent Deployment & Setup
 
-This document describes how Wazuh agents are deployed, configured, connected to the Wazuh Manager, and verified in the home lab.
+This document describes how Wazuh agents were deployed and connected to the Wazuh Manager in my home lab.
 
-The purpose of the setup is to monitor endpoint activity and forward security telemetry to the centralized Wazuh Manager.
+The deployment process involved transferring the Wazuh Agent MSI package to the Windows endpoint, accessing the endpoint through RDP, installing the agent, configuring the Wazuh Manager address, applying the agent authentication key, and verifying the agent connection.
 
 ---
 
-## 🏗️ Setup Overview
+# 🏗️ Deployment Architecture
 
 ```text
-                 Wazuh Manager
-                      │
-             Agent Registration
-                      │
-        ┌─────────────┼─────────────┐
-        │             │             │
-        ▼             ▼             ▼
-     Agent 01      Agent 02      Agent 03
-        │             │             │
-        └─────────────┼─────────────┘
-                      │
-                   Agent 04
+                    Debian Wazuh Server
+                    192.168.29.153
+                           │
+                           │
+                     Wazuh Manager
+                           │
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+              ▼                         ▼
+       Windows 7 Agent           Windows 8.1 Agent
+       192.168.29.28             192.168.29.197
 ```
-
-The lab currently contains **four Wazuh agents**.
 
 ---
 
-# 1. Agent Installation
+# 🧰 Deployment Tools
 
-The Wazuh agent is installed on the endpoint that needs to be monitored.
+The following technologies were used during deployment:
 
-The installation method depends on the operating system.
+| Tool / Technology | Purpose                            |
+| ----------------- | ---------------------------------- |
+| SSH               | Remote access / file transfer      |
+| SCP               | Transfer Wazuh Agent MSI           |
+| RDP               | Remote graphical access to Windows |
+| MSI Installer     | Install Wazuh Agent                |
+| Wazuh Agent       | Endpoint monitoring                |
+| Wazuh Manager     | Centralized security monitoring    |
 
-## Windows
+---
 
-The Wazuh agent is installed on Windows endpoints and configured to communicate with the Wazuh Manager.
+# 1. Prepare the Wazuh Agent Package
 
-After installation, the Wazuh service can be checked with PowerShell:
+The Wazuh Agent MSI installer was prepared on the Debian/Linux environment.
 
-```powershell
-Get-Service WazuhSvc
-```
+The installer was then transferred to the Windows endpoint using SSH-based file transfer.
 
-A running service should show a status similar to:
+The general transfer workflow was:
 
 ```text
-Status   Name       DisplayName
-------   ----       -----------
-Running  WazuhSvc   Wazuh
+Debian Wazuh Server
+       │
+       │ SCP / SSH
+       ▼
+Windows Endpoint
+       │
+       ▼
+Wazuh Agent MSI
 ```
+
+The actual installer filename/version is intentionally not hard-coded in this documentation so that the repository remains accurate if the lab is rebuilt with a different Wazuh version.
 
 ---
 
-## Linux
+# 2. Transfer the MSI to Windows
 
-On Linux endpoints, the Wazuh agent service can be checked with:
+The Wazuh Agent MSI package was transferred to the Windows endpoint.
 
-```bash
-sudo systemctl status wazuh-agent
-```
-
-The service can be started with:
-
-```bash
-sudo systemctl start wazuh-agent
-```
-
-To enable it during system startup:
-
-```bash
-sudo systemctl enable wazuh-agent
-```
-
----
-
-# 2. Manager Configuration
-
-The Wazuh agent needs to know the IP address or hostname of the Wazuh Manager.
-
-The configuration contains the manager address used for agent communication.
+The transfer was performed using SSH/SCP.
 
 Conceptually:
 
 ```text
-Agent
+Linux
   │
-  │ Security Events
-  │
+  │ Secure File Transfer
   ▼
-Wazuh Manager IP
-  │
-  ▼
+Windows 7
+```
+
+Example SCP syntax:
+
+```bash
+scp wazuh-agent.msi <username>@<WINDOWS_IP>:/path/to/destination/
+```
+
+> The exact command may vary depending on the SSH/SCP configuration of the Windows endpoint.
+
+---
+
+# 3. Access Windows Endpoint Using RDP
+
+After transferring the MSI file, the Windows endpoint was accessed using Remote Desktop Protocol.
+
+The RDP session was used to perform the Wazuh Agent installation and configuration through the Windows graphical interface.
+
+```text
+RDP Client
+    │
+    ▼
+Windows 7
+192.168.29.28
+    │
+    ▼
+Install Wazuh Agent
+```
+
+---
+
+# 4. Install Wazuh Agent
+
+The transferred MSI installer was executed on the Windows endpoint.
+
+The installation process consisted of:
+
+1. Open the transferred MSI package
+2. Start the Wazuh Agent installation
+3. Follow the installation wizard
+4. Complete the installation
+5. Configure the Wazuh Manager connection
+
+---
+
+# 5. Configure Wazuh Manager
+
+During the agent configuration, the Wazuh Manager address was specified.
+
+The Wazuh Manager in the lab is:
+
+```text
+Wazuh Manager
+192.168.29.153
+```
+
+The communication path is:
+
+```text
+Windows Agent
+      │
+      │ Security Telemetry
+      ▼
+192.168.29.153
+      │
+      ▼
 Wazuh Manager
 ```
 
-> **Security Note:** Actual IP addresses, credentials, registration keys, and other sensitive information should not be committed to this repository.
+---
 
-Use placeholders in documentation:
+# 6. Agent Authentication
+
+The Wazuh Agent was configured using an agent authentication/enrollment key.
+
+The key allows the endpoint to authenticate with the Wazuh Manager.
+
+For security reasons, the actual key is **not stored in this repository**.
+
+Documentation should use:
 
 ```text
-<WAZUH_MANAGER_IP>
+<AGENT_AUTHENTICATION_KEY>
 ```
+
+instead of the real value.
+
+### Security Rule
+
+Never commit:
+
+```text
+Agent Authentication Key
+Passwords
+API Keys
+Private Keys
+Access Tokens
+```
+
+to a public GitHub repository.
 
 ---
 
-# 3. Network Connectivity
+# 7. Start the Wazuh Agent
 
-Before troubleshooting the Wazuh agent itself, network connectivity should be verified.
+After installation and configuration, the Wazuh Agent service was started.
 
-From the endpoint:
-
-```bash
-ping <WAZUH_MANAGER_IP>
-```
-
-For Windows:
-
-```powershell
-Test-Connection <WAZUH_MANAGER_IP>
-```
-
-Successful connectivity indicates that the endpoint can reach the manager at the basic network level.
-
----
-
-# 4. Agent Service Verification
-
-After configuring the agent, verify that the Wazuh service is running.
-
-### Windows
+On Windows, the service can be checked using PowerShell:
 
 ```powershell
 Get-Service WazuhSvc
 ```
 
-### Linux
+Expected result:
 
-```bash
-sudo systemctl status wazuh-agent
+```text
+Status
+------
+Running
 ```
 
-If the service is stopped, start it and verify the status again.
+The service can be restarted with:
+
+```powershell
+Restart-Service WazuhSvc
+```
 
 ---
 
-# 5. Verify Agent in Wazuh
+# 8. Verify Network Connectivity
 
-After the agent is configured and running, the Wazuh Dashboard can be used to verify the connection.
+Before troubleshooting the Wazuh application layer, basic network connectivity was verified.
+
+From Windows:
+
+```powershell
+Test-Connection 192.168.29.153
+```
+
+This confirms basic connectivity between the Windows endpoint and the Wazuh Server.
+
+---
+
+# 9. Verify Agent Status
+
+After configuration and service startup, the Wazuh Dashboard was used to verify the agent status.
 
 Expected workflow:
 
 ```text
-Agent Configuration
-        │
-        ▼
+Agent Installed
+      │
+      ▼
+Manager IP Configured
+      │
+      ▼
+Authentication Key Configured
+      │
+      ▼
 Agent Service Started
-        │
-        ▼
-Network Connectivity
-        │
-        ▼
-Manager Communication
-        │
-        ▼
+      │
+      ▼
+Network Communication
+      │
+      ▼
 Agent Appears Online
-        │
-        ▼
-Events Begin Arriving
 ```
-
-The important distinction is:
-
-**Agent Online ≠ Events Successfully Collected**
-
-An agent can appear online while the expected logs are not being collected. Therefore, event verification is also required.
 
 ---
 
-# 6. Event Verification
+# 10. Windows 7 Agent
 
-After confirming that the agent is online, generate controlled activity on the endpoint.
+## Endpoint Information
 
-Examples:
+| Property            | Value            |
+| ------------------- | ---------------- |
+| Operating System    | Windows 7        |
+| IP Address          | `192.168.29.28`  |
+| Wazuh Manager       | `192.168.29.153` |
+| Agent Software      | Wazuh Agent      |
+| Installation Method | MSI              |
+| Remote Access       | RDP              |
+| File Transfer       | SSH/SCP          |
 
-* User authentication
-* Process execution
-* PowerShell commands
-* File activity
-* System events
+### Deployment Flow
 
-Then check the Wazuh Dashboard for the resulting events.
+```text
+Debian Server
+     │
+     │ SCP
+     ▼
+Wazuh Agent MSI
+     │
+     ▼
+Windows 7
+192.168.29.28
+     │
+     │ RDP
+     ▼
+MSI Installation
+     │
+     ▼
+Manager IP Configuration
+     │
+     ▼
+Agent Authentication
+     │
+     ▼
+Wazuh Manager
+192.168.29.153
+```
+
+---
+
+# 11. Windows 8.1 Agent
+
+The Windows 8.1 system is also configured as a Wazuh endpoint.
+
+## Endpoint Information
+
+| Property              | Value            |
+| --------------------- | ---------------- |
+| Operating System      | Windows 8.1      |
+| IP Address            | `192.168.29.197` |
+| Wazuh Manager         | `192.168.29.153` |
+| Agent Software        | Wazuh Agent      |
+| Additional Monitoring | Sysmon           |
+| Remote Access         | RDP / SSH        |
+
+The Windows 8.1 endpoint provides additional security telemetry through Sysmon.
+
+```text
+Windows 8.1
+192.168.29.197
+       │
+       ├── Wazuh Agent
+       │
+       ├── Sysmon
+       │
+       ├── SSH
+       │
+       └── RDP
+              │
+              ▼
+       Wazuh Manager
+       192.168.29.153
+```
+
+---
+
+# 12. Validate Event Collection
+
+After confirming that the agent is online, the next step is to verify that events are actually being collected.
 
 The validation process is:
 
@@ -198,143 +337,131 @@ The validation process is:
 Generate Activity
        │
        ▼
-Endpoint Creates Event
+Windows Event
        │
        ▼
-Wazuh Agent Collects Event
+Wazuh Agent
        │
        ▼
-Wazuh Manager Receives Event
+Wazuh Manager
        │
        ▼
-Event Appears in Dashboard
+Wazuh Dashboard
 ```
+
+Examples of activities that can be used for validation:
+
+* User authentication
+* Failed authentication
+* Process execution
+* PowerShell activity
+* File activity
+* System events
+* Sysmon events
 
 ---
 
-# 7. Troubleshooting
+# 13. Troubleshooting
 
-## Problem: Agent Offline
+If the agent appears offline:
 
-Initial checks:
-
-### Check network connectivity
-
-Windows:
-
-```powershell
-Test-Connection <WAZUH_MANAGER_IP>
-```
-
-Linux:
-
-```bash
-ping <WAZUH_MANAGER_IP>
-```
-
-### Check the agent service
-
-Windows:
+### Check the service
 
 ```powershell
 Get-Service WazuhSvc
 ```
 
-Linux:
+### Check network connectivity
 
-```bash
-sudo systemctl status wazuh-agent
+```powershell
+Test-Connection 192.168.29.153
 ```
 
-### Check configuration
+### Verify Manager Address
 
-Verify that the configured manager address is correct.
-
----
-
-## Problem: Agent Online but No Events
-
-This requires a different investigation.
-
-Check:
-
-1. Agent service status
-2. Agent configuration
-3. Configured log sources
-4. Windows Event Channels
-5. Linux log files
-6. Network connectivity
-7. Wazuh Manager status
-8. Wazuh Dashboard filters
-
-The investigation should determine whether the problem is:
+Confirm that the configured Manager address is:
 
 ```text
-Endpoint
-   ↓
-Log Generation
-   ↓
-Agent Collection
-   ↓
-Network Transport
-   ↓
-Manager Processing
-   ↓
-Dashboard
+192.168.29.153
 ```
 
----
+### Verify Authentication
 
-# 8. Lessons Learned
-
-Working with multiple agents highlighted several important concepts:
-
-* Agent connectivity depends on correct network configuration.
-* A running agent service does not necessarily mean logs are being collected.
-* Network troubleshooting should be performed before assuming a Wazuh configuration problem.
-* Endpoint log sources must be correctly configured.
-* Security monitoring requires validating the complete event pipeline.
-* Troubleshooting is an important part of maintaining a SIEM environment.
+Confirm that the correct agent authentication/enrollment information was configured.
 
 ---
 
-# 9. Future Improvements
+# 14. Lessons Learned
 
-Planned improvements to the agent environment include:
-
-* Document each endpoint individually
-* Add screenshots of agent status
-* Document Windows Event Channel configuration
-* Add Sysmon integration
-* Create custom detection rules
-* Document common agent troubleshooting scenarios
-* Add Linux-specific monitoring
-* Create an agent deployment checklist
-
----
-
-## ⚠️ Security Considerations
-
-Never commit the following to GitHub:
+This deployment provided practical experience with the complete endpoint onboarding process:
 
 ```text
-Passwords
-API Keys
-Authentication Keys
-Private Keys
-Agent Registration Keys
-Personal IP Addresses
-VPN Credentials
-Cloud Credentials
-Access Tokens
+Prepare
+   ↓
+Transfer
+   ↓
+Install
+   ↓
+Configure
+   ↓
+Authenticate
+   ↓
+Connect
+   ↓
+Verify
+   ↓
+Monitor
 ```
 
-Use placeholders such as:
+Key lessons:
+
+* Secure file transfer can be used to stage software on lab endpoints.
+* RDP can simplify Windows endpoint administration.
+* Correct Manager addressing is essential for agent communication.
+* Agent authentication is required for secure enrollment/communication.
+* An online agent should be followed by event-generation testing.
+* Network and service troubleshooting should be performed before deeper investigation.
+
+---
+
+# 🔐 Security Considerations
+
+This repository is intended to document a home lab.
+
+Never publish:
+
+```text
+❌ Wazuh Authentication Keys
+❌ Passwords
+❌ SSH Private Keys
+❌ RDP Credentials
+❌ API Keys
+❌ Access Tokens
+❌ Personal Credentials
+```
+
+Use placeholders:
 
 ```text
 <WAZUH_MANAGER_IP>
-<AGENT_NAME>
+<AGENT_AUTHENTICATION_KEY>
 <USERNAME>
+<PASSWORD>
 ```
 
-when documenting the configuration.
+Private lab IP addresses may also be replaced with placeholders if the repository is public.
+
+---
+
+# 🚀 Future Improvements
+
+Planned improvements include:
+
+* Document exact agent configuration
+* Add screenshots of successful enrollment
+* Document Windows Event Channel monitoring
+* Document Sysmon integration
+* Add agent troubleshooting cases
+* Add custom Wazuh rules
+* Document alert investigations
+* Add endpoint-specific monitoring guides
