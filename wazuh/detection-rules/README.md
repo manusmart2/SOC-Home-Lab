@@ -15,7 +15,7 @@ The primary focus is understanding how Windows and Sysmon telemetry can be colle
 * Understand rule IDs and alert severity
 * Investigate alerts generated from endpoint activity
 * Develop custom detection rules
-* Reduce false positives through testing
+* Reduce false positives through testing.
 
 ---
 
